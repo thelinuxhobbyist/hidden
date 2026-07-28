@@ -1,0 +1,243 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>My Library — Hidden Linux</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    .library-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 20px;
+      background:
+        radial-gradient(circle at top left, rgba(16, 185, 129, 0.18), transparent 40%),
+        radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.12), transparent 35%),
+        #0f172a;
+    }
+
+    .library-card {
+      width: min(560px, 100%);
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 40px 32px 32px;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.45);
+    }
+
+    .library-card h1 {
+      font-size: 2rem;
+      margin-bottom: 10px;
+      color: #0f172a;
+    }
+
+    .library-card .lead {
+      color: #64748b;
+      margin-bottom: 24px;
+      font-size: 1.05rem;
+    }
+
+    .library-card label {
+      display: block;
+      font-weight: 600;
+      margin-bottom: 8px;
+      color: #0f172a;
+    }
+
+    .library-card input[type="email"] {
+      width: 100%;
+      padding: 14px 16px;
+      border: 1px solid #e2e8f0;
+      border-radius: 10px;
+      font-size: 1rem;
+      margin-bottom: 16px;
+    }
+
+    .library-card .btn {
+      width: 100%;
+    }
+
+    .library-status {
+      margin-top: 16px;
+      padding: 14px 16px;
+      border-radius: 10px;
+      background: #f8fafc;
+      color: #475569;
+      font-size: 0.98rem;
+    }
+
+    .library-status.is-error {
+      background: #fff7ed;
+      color: #9a3412;
+      border: 1px solid #fdba74;
+    }
+
+    .library-status.is-success {
+      background: #ecfdf5;
+      color: #065f46;
+      border: 1px solid #6ee7b7;
+    }
+
+    .library-meta {
+      color: #64748b;
+      margin: 8px 0 24px;
+      font-size: 0.98rem;
+    }
+
+    .library-actions {
+      display: grid;
+      gap: 12px;
+    }
+
+    .library-footer {
+      margin-top: 24px;
+      text-align: center;
+    }
+
+    .library-footer a {
+      color: #059669;
+      font-weight: 600;
+    }
+
+    .hidden { display: none !important; }
+  </style>
+</head>
+<body>
+  <main class="library-page">
+    <div class="library-card">
+      <div id="loginView">
+        <h1>My Library</h1>
+        <p class="lead">
+          Enter the email you used at checkout. We’ll send a one-time login link so you can download the latest Hidden Linux PDF anytime.
+        </p>
+        <form id="loginForm">
+          <label for="email">Email</label>
+          <input id="email" name="email" type="email" autocomplete="email" required placeholder="you@example.com" />
+          <button class="btn btn-primary btn-large" type="submit" id="sendLinkBtn">Email me a login link</button>
+        </form>
+        <p class="library-status hidden" id="loginStatus"></p>
+      </div>
+
+      <div id="libraryView" class="hidden">
+        <h1>Your ebook</h1>
+        <p class="lead">Signed in as <strong id="signedInEmail"></strong></p>
+        <p class="library-meta" id="purchaseMeta"></p>
+        <div class="library-actions">
+          <a class="btn btn-primary btn-large" href="/api/ebook" id="downloadBtn">Download latest PDF</a>
+          <button class="btn btn-secondary" type="button" id="logoutBtn">Sign out</button>
+        </div>
+        <p class="library-status hidden" id="libraryStatus"></p>
+      </div>
+
+      <div class="library-footer">
+        <a href="/">← Back to Hidden Linux</a>
+      </div>
+    </div>
+  </main>
+
+  <script>
+    const loginView = document.getElementById('loginView');
+    const libraryView = document.getElementById('libraryView');
+    const loginForm = document.getElementById('loginForm');
+    const loginStatus = document.getElementById('loginStatus');
+    const libraryStatus = document.getElementById('libraryStatus');
+    const signedInEmail = document.getElementById('signedInEmail');
+    const purchaseMeta = document.getElementById('purchaseMeta');
+    const sendLinkBtn = document.getElementById('sendLinkBtn');
+    const logoutBtn = document.getElementById('logoutBtn');
+    const params = new URLSearchParams(window.location.search);
+
+    function showStatus(el, message, type) {
+      el.textContent = message;
+      el.classList.remove('hidden', 'is-error', 'is-success');
+      if (type) el.classList.add(type);
+    }
+
+    function showLogin() {
+      loginView.classList.remove('hidden');
+      libraryView.classList.add('hidden');
+    }
+
+    function showLibrary(data) {
+      loginView.classList.add('hidden');
+      libraryView.classList.remove('hidden');
+      signedInEmail.textContent = data.email;
+      if (data.hasPurchase) {
+        const purchased = data.purchasedAt ? new Date(data.purchasedAt).toLocaleDateString() : 'your purchase date';
+        purchaseMeta.textContent = `Lifetime access · purchased ${purchased}. Re-download anytime to get the latest version.`;
+        libraryStatus.classList.add('hidden');
+      } else {
+        purchaseMeta.textContent = 'No purchase is linked to this email yet.';
+        showStatus(libraryStatus, 'If you just checked out, wait a moment and refresh. Otherwise buy the ebook first.', 'is-error');
+      }
+    }
+
+    async function loadLibrary() {
+      try {
+        const response = await fetch('/api/library', { credentials: 'same-origin', cache: 'no-store' });
+        if (response.status === 401) {
+          showLogin();
+          if (params.get('error')) {
+            showStatus(loginStatus, params.get('error'), 'is-error');
+          } else if (params.get('signed_in')) {
+            showStatus(loginStatus, 'Session expired. Request a new login link.', 'is-error');
+          }
+          return;
+        }
+
+        const data = await response.json();
+        if (!data.authenticated) {
+          showLogin();
+          return;
+        }
+
+        showLibrary(data);
+        if (params.get('signed_in') && data.hasPurchase) {
+          showStatus(libraryStatus, 'You are signed in. Download the latest PDF below.', 'is-success');
+        }
+      } catch (error) {
+        console.error(error);
+        showLogin();
+        showStatus(loginStatus, 'Could not load library status. Try again.', 'is-error');
+      }
+    }
+
+    loginForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const email = document.getElementById('email').value.trim();
+      sendLinkBtn.disabled = true;
+      sendLinkBtn.textContent = 'Sending…';
+      showStatus(loginStatus, 'Sending login link…');
+
+      try {
+        const response = await fetch('/api/auth/request-link', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.error || 'Could not send login link');
+        }
+        showStatus(loginStatus, data.message || 'Check your email for the login link.', 'is-success');
+      } catch (error) {
+        showStatus(loginStatus, error.message || 'Could not send login link', 'is-error');
+      } finally {
+        sendLinkBtn.disabled = false;
+        sendLinkBtn.textContent = 'Email me a login link';
+      }
+    });
+
+    logoutBtn.addEventListener('click', async () => {
+      await fetch('/api/auth/logout', { method: 'POST', credentials: 'same-origin' });
+      window.location.href = '/library.html';
+    });
+
+    loadLibrary();
+  </script>
+</body>
+</html>

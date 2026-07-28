@@ -103,7 +103,7 @@ async function generateRandomPreview() {
   }
 
   try {
-    const pdf = await pdfjsLib.getDocument({ url: '/api/ebook' }).promise;
+    const pdf = await pdfjsLib.getDocument({ url: '/api/preview' }).promise;
     const totalPages = pdf.numPages;
 
     if (totalPages < 2) {

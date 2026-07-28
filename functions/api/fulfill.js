@@ -1,5 +1,10 @@
 import { jsonResponse, withCorsHeaders } from '../_shared.js';
 import { getCheckoutSession, sendEbookEmail } from '../_email.js';
+import {
+  markPurchaseEmailSent,
+  recordPurchase,
+  shouldSendPurchaseEmail
+} from '../_library.js';
 
 export async function onRequestOptions() {
   return new Response(null, { status: 204, headers: withCorsHeaders() });
@@ -28,15 +33,37 @@ export async function onRequestPost({ request, env }) {
   }
 
   const email = session.customer_details?.email || session.customer_email;
-  const result = await sendEbookEmail(env, email);
+  const origin = new URL(request.url).origin;
 
-  if (!result.ok) {
-    return jsonResponse({ error: result.error, detail: result.detail }, 500);
+  const purchaseResult = await recordPurchase(env, {
+    email,
+    stripeSessionId: session.id,
+    stripeCustomerId: session.customer || null,
+    stripePaymentIntent: session.payment_intent || null
+  });
+
+  if (!purchaseResult.ok) {
+    return jsonResponse({ error: purchaseResult.error || 'Could not record purchase' }, 500);
+  }
+
+  let emailed = false;
+  if (await shouldSendPurchaseEmail(env, purchaseResult.purchase)) {
+    const result = await sendEbookEmail(env, email, { origin });
+
+    if (!result.ok) {
+      return jsonResponse({ error: result.error, detail: result.detail }, 500);
+    }
+
+    await markPurchaseEmailSent(env, purchaseResult.purchase);
+    emailed = true;
   }
 
   return jsonResponse({
     ok: true,
     email,
-    message: 'Ebook delivery started. Check your inbox (and spam folder).'
+    emailed,
+    message: emailed
+      ? 'Ebook delivery started. Check your inbox (and spam folder). You can also access updates anytime from My Library.'
+      : 'Purchase confirmed. Check your inbox for the ebook, or open My Library anytime for the latest version.'
   });
 }

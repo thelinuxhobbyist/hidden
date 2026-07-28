@@ -6,6 +6,7 @@ export async function onRequestOptions() {
 
 export async function onRequestGet({ env }) {
   let pdfFound = false;
+  let previewFound = false;
 
   try {
     const obj = await env.BOOK_BUCKET?.head('Hidden_Linux.pdf');
@@ -14,11 +15,20 @@ export async function onRequestGet({ env }) {
     pdfFound = false;
   }
 
+  try {
+    const preview = await env.BOOK_BUCKET?.head('Hidden_Linux_preview.pdf');
+    previewFound = Boolean(preview);
+  } catch {
+    previewFound = false;
+  }
+
   return jsonResponse({
     ok: true,
     stripeConfigured: Boolean(env.STRIPE_SECRET_KEY),
     resendConfigured: Boolean(env.RESEND_API_KEY),
     webhookSecretConfigured: Boolean(env.STRIPE_WEBHOOK_SECRET),
-    pdfFound
+    pdfFound,
+    previewFound,
+    libraryEnabled: true
   });
 }

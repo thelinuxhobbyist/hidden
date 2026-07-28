@@ -4,10 +4,31 @@
 
 ```bash
 npm install
-node server.js
+npm run dev:pages
 ```
 
-Open http://localhost:3000.
+Open the URL Wrangler prints (usually http://localhost:8788).
+
+## My Library (lifetime access)
+
+After purchase, customers can reopen `/library.html`, enter their checkout email, and receive a passwordless login link via Resend. Signed-in buyers download the latest `Hidden_Linux.pdf` from R2 through `/api/ebook`.
+
+- Purchases + sessions are stored as private JSON objects in the same R2 bucket (no public R2 access).
+- Uploading a newer `Hidden_Linux.pdf` automatically updates every buyer’s library download.
+- Instant email attachment on purchase is unchanged.
+
+### Preview vs full ebook
+
+| Key in R2 | Endpoint | Access |
+|-----------|----------|--------|
+| `Hidden_Linux_preview.pdf` | `/api/preview` | Public sample for the landing-page preview |
+| `Hidden_Linux.pdf` | `/api/ebook` | Buyers only (magic-link session required) |
+
+Upload a short sample PDF as `Hidden_Linux_preview.pdf` so the “Read Preview” button keeps working.
+
+```bash
+npx wrangler r2 object put hiddenlinux/Hidden_Linux_preview.pdf --file=./Hidden_Linux_preview.pdf --remote
+```
 
 ## Admin panel (edit price easily)
 
@@ -36,7 +57,7 @@ Then change price, currency, and product text. Checkout picks them up automatica
 Static site + API live together on Pages:
 
 - Static files: `public/`
-- API: `functions/api/*` (`/api/ebook`, `/api/checkout`, `/api/webhook/stripe`)
+- API: `functions/api/*` (checkout, webhook, library auth, gated ebook)
 - R2 binding: `BOOK_BUCKET` → bucket `hiddenlinux` (see `wrangler.toml`)
 
 ### Deploy

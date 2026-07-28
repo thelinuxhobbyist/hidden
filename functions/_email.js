@@ -1,6 +1,7 @@
 import { arrayBufferToBase64 } from './_shared.js';
+import { PRODUCT_KEY } from './_library.js';
 
-export async function sendEbookEmail(env, email) {
+export async function sendEbookEmail(env, email, options = {}) {
   if (!email) {
     return { ok: false, error: 'Missing customer email' };
   }
@@ -9,13 +10,15 @@ export async function sendEbookEmail(env, email) {
     return { ok: false, error: 'Resend is not configured' };
   }
 
-  const obj = await env.BOOK_BUCKET.get('Hidden_Linux.pdf');
+  const obj = await env.BOOK_BUCKET.get(PRODUCT_KEY);
   if (!obj) {
     return { ok: false, error: 'PDF not found in storage' };
   }
 
   const arrayBuffer = await obj.arrayBuffer();
   const b64 = arrayBufferToBase64(arrayBuffer);
+  const origin = options.origin || 'https://hidden-linux.pages.dev';
+  const libraryUrl = `${origin}/library.html`;
 
   const resendResp = await fetch('https://api.resend.com/emails', {
     method: 'POST',
@@ -30,11 +33,16 @@ export async function sendEbookEmail(env, email) {
       html: `
         <p>Thanks for your purchase!</p>
         <p>Your Hidden Linux ebook PDF is attached to this email.</p>
+        <p>
+          You also have <strong>lifetime access &amp; future updates</strong>.
+          Anytime you need the latest version, open your library and sign in with this email:
+        </p>
+        <p><a href="${libraryUrl}">${libraryUrl}</a></p>
         <p>If you have any trouble opening it, reply to this email and we’ll help.</p>
       `,
       attachments: [
         {
-          filename: 'Hidden_Linux.pdf',
+          filename: PRODUCT_KEY,
           content: b64
         }
       ]
@@ -44,6 +52,39 @@ export async function sendEbookEmail(env, email) {
   if (!resendResp.ok) {
     const detail = await resendResp.text();
     console.error('Resend API error', detail);
+    return { ok: false, error: 'Resend failed', detail };
+  }
+
+  return { ok: true };
+}
+
+export async function sendMagicLoginEmail(env, email, loginUrl) {
+  if (!env.RESEND_API_KEY) {
+    return { ok: false, error: 'Resend is not configured' };
+  }
+
+  const resendResp = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify({
+      from: 'Hidden Linux <orders@hiddenlinux.com>',
+      to: [email],
+      subject: 'Your Hidden Linux library login link',
+      html: `
+        <p>Use this secure link to open your Hidden Linux library and download the latest ebook:</p>
+        <p><a href="${loginUrl}">${loginUrl}</a></p>
+        <p>This link expires in 20 minutes and can only be used once.</p>
+        <p>If you did not request this, you can ignore this email.</p>
+      `
+    })
+  });
+
+  if (!resendResp.ok) {
+    const detail = await resendResp.text();
+    console.error('Resend magic-link error', detail);
     return { ok: false, error: 'Resend failed', detail };
   }
 
