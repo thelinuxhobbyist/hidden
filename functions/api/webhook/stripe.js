@@ -1,4 +1,4 @@
-import { withCorsHeaders } from '../../_shared.js';
+import { withCorsHeaders, getPublicSiteUrl } from '../../_shared.js';
 import { sendEbookEmail } from '../../_email.js';
 import {
   markPurchaseEmailSent,
@@ -66,7 +66,7 @@ export async function onRequestPost({ request, env }) {
   if (event.type === 'checkout.session.completed') {
     const session = event.data.object;
     const email = session.customer_details?.email || session.customer_email;
-    const origin = new URL(request.url).origin;
+    const origin = getPublicSiteUrl(env, request);
 
     const purchaseResult = await recordPurchase(env, {
       email,

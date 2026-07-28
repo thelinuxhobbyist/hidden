@@ -23,3 +23,20 @@ export function jsonResponse(body, status = 200) {
     headers: withCorsHeaders(new Headers({ 'Content-Type': 'application/json' }))
   });
 }
+
+/** Canonical customer-facing site URL (custom domain), not the Pages *.pages.dev host. */
+export function getPublicSiteUrl(env, request) {
+  const configured = String(env?.PUBLIC_SITE_URL || '').trim().replace(/\/$/, '');
+  if (configured) return configured;
+
+  try {
+    const origin = new URL(request.url).origin;
+    if (origin && !origin.includes('.pages.dev')) {
+      return origin;
+    }
+  } catch {
+    // ignore invalid request URL
+  }
+
+  return 'https://hiddenlinux.com';
+}

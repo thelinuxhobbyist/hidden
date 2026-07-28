@@ -1,4 +1,4 @@
-import { jsonResponse, withCorsHeaders } from '../_shared.js';
+import { jsonResponse, withCorsHeaders, getPublicSiteUrl } from '../_shared.js';
 import { getCheckoutSession, sendEbookEmail } from '../_email.js';
 import {
   markPurchaseEmailSent,
@@ -33,7 +33,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   const email = session.customer_details?.email || session.customer_email;
-  const origin = new URL(request.url).origin;
+  const origin = getPublicSiteUrl(env, request);
 
   const purchaseResult = await recordPurchase(env, {
     email,

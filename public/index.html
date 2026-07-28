@@ -195,25 +195,23 @@
   <div class="modal" id="previewModal">
     <div class="modal-overlay" id="modalOverlay"></div>
     <div class="modal-container modal-container--fullscreen">
-      <div class="modal-header">
-        <div>
-          <h3>Ebook Preview — Hidden Linux</h3>
-          <p class="modal-subtitle" id="previewRangeLabel">Sample pages from the book</p>
+      <div class="modal-header modal-header--preview">
+        <div class="modal-header__copy">
+          <h3>Ebook preview</h3>
+          <p class="modal-subtitle" id="previewRangeLabel">3 random sample pages from the book</p>
         </div>
+        <p class="preview-page-indicator" id="previewPageIndicator"></p>
         <button class="modal-close" id="closeModalBtn" aria-label="Close preview" type="button">&times;</button>
       </div>
       <div class="modal-body modal-body--preview" aria-live="polite">
-        <div class="preview-stage">
-          <button type="button" class="preview-nav preview-nav--prev" id="previewPrevBtn" aria-label="Previous page">‹</button>
-          <div class="preview-frame" id="previewFrame">
-            <div class="preview-loading">Loading preview pages…</div>
-          </div>
-          <button type="button" class="preview-nav preview-nav--next" id="previewNextBtn" aria-label="Next page">›</button>
+        <button type="button" class="preview-nav preview-nav--prev" id="previewPrevBtn" aria-label="Previous page">‹</button>
+        <div class="preview-frame" id="previewFrame">
+          <div class="preview-loading">Loading a full-page sample…</div>
         </div>
-        <p class="preview-page-indicator" id="previewPageIndicator"></p>
+        <button type="button" class="preview-nav preview-nav--next" id="previewNextBtn" aria-label="Next page">›</button>
       </div>
-      <div class="modal-footer">
-        <p>Want the full 54-page PDF? Get instant delivery after checkout.</p>
+      <div class="modal-footer modal-footer--preview">
+        <p>This is a sample. Buy once for the full 54-page PDF plus lifetime updates.</p>
         <a href="#buy" class="btn btn-primary" id="modalBuyBtn" onclick="closeModal()">Buy Ebook Now (<span data-price>$19</span>)</a>
       </div>
     </div>
@@ -234,6 +232,6 @@
       })
       .catch(function () {});
   </script>
-  <script src="script.js?v=4"></script>
+  <script src="script.js?v=5"></script>
 </body>
 </html>

@@ -1,4 +1,4 @@
-import { arrayBufferToBase64 } from './_shared.js';
+import { arrayBufferToBase64, getPublicSiteUrl } from './_shared.js';
 import { PRODUCT_KEY } from './_library.js';
 
 export async function sendEbookEmail(env, email, options = {}) {
@@ -17,7 +17,7 @@ export async function sendEbookEmail(env, email, options = {}) {
 
   const arrayBuffer = await obj.arrayBuffer();
   const b64 = arrayBufferToBase64(arrayBuffer);
-  const origin = options.origin || 'https://hidden-linux.pages.dev';
+  const origin = options.origin || getPublicSiteUrl(env);
   const libraryUrl = `${origin}/library.html`;
 
   const resendResp = await fetch('https://api.resend.com/emails', {

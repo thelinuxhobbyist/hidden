@@ -85,7 +85,16 @@ For preview deployments, also set them with `--env preview`.
 
 Point your Stripe webhook to:
 
-`https://hidden-linux.pages.dev/api/webhook/stripe`
+`https://hiddenlinux.com/api/webhook/stripe`
+
+(You can also use `https://hidden-linux.pages.dev/api/webhook/stripe`; customer-facing links still use `https://hiddenlinux.com`.)
+
+Optional override:
+
+```bash
+npx wrangler pages secret put PUBLIC_SITE_URL --project-name=hidden-linux
+# value: https://hiddenlinux.com
+```
 
 ## Local Node server env vars
 

@@ -1,4 +1,4 @@
-import { jsonResponse, withCorsHeaders } from '../../_shared.js';
+import { jsonResponse, withCorsHeaders, getPublicSiteUrl } from '../../_shared.js';
 import { createLoginToken, isValidEmail, normalizeEmail } from '../../_library.js';
 import { sendMagicLoginEmail } from '../../_email.js';
 
@@ -24,7 +24,7 @@ export async function onRequestPost({ request, env }) {
   }
 
   if (result.sent) {
-    const origin = new URL(request.url).origin;
+    const origin = getPublicSiteUrl(env, request);
     const loginUrl = `${origin}/api/auth/verify?token=${encodeURIComponent(result.token)}`;
     const emailResult = await sendMagicLoginEmail(env, result.email, loginUrl);
     if (!emailResult.ok) {

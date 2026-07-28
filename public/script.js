@@ -73,22 +73,44 @@ document.addEventListener('keydown', (event) => {
   }
 });
 
-function getPreviewScale() {
-  const width = Math.min(window.innerWidth - 120, 980);
-  return Math.max(1.1, Math.min(2.2, width / 612));
+function getPreviewFitScale(page) {
+  const base = page.getViewport({ scale: 1 });
+  const frame = previewFrame;
+  if (!frame) return 1.5;
+
+  const styles = window.getComputedStyle(frame);
+  const padX = (parseFloat(styles.paddingLeft) || 0) + (parseFloat(styles.paddingRight) || 0);
+  const padY = (parseFloat(styles.paddingTop) || 0) + (parseFloat(styles.paddingBottom) || 0);
+  const availW = Math.max(240, frame.clientWidth - padX - 8);
+  const availH = Math.max(280, frame.clientHeight - padY - 8);
+
+  const byWidth = availW / base.width;
+  const byHeight = availH / base.height;
+
+  // Prefer the largest readable size: fill width when the full page would be too small.
+  if (byHeight < 1.25 && byWidth > byHeight) {
+    return byWidth;
+  }
+
+  return Math.min(byWidth, byHeight);
 }
 
 async function renderPreviewPage(pageNum) {
   const page = await previewState.pdf.getPage(pageNum);
-  const viewport = page.getViewport({ scale: getPreviewScale() });
+  const fitScale = getPreviewFitScale(page);
+  const outputScale = Math.min(window.devicePixelRatio || 1, 2.5);
+  const viewport = page.getViewport({ scale: fitScale });
   const canvas = document.createElement('canvas');
   const context = canvas.getContext('2d');
 
-  canvas.width = viewport.width;
-  canvas.height = viewport.height;
+  canvas.width = Math.floor(viewport.width * outputScale);
+  canvas.height = Math.floor(viewport.height * outputScale);
+  canvas.style.width = `${Math.floor(viewport.width)}px`;
+  canvas.style.height = `${Math.floor(viewport.height)}px`;
   canvas.className = 'preview-canvas preview-canvas--fullscreen';
   canvas.setAttribute('aria-label', `Preview page ${pageNum + PREVIEW_PAGE_OFFSET}`);
 
+  context.setTransform(outputScale, 0, 0, outputScale, 0, 0);
   await page.render({ canvasContext: context, viewport }).promise;
   return canvas;
 }
@@ -101,15 +123,18 @@ async function showPreviewPage(index) {
 
   const pageNum = previewState.pages[nextIndex];
   const originalPage = pageNum + PREVIEW_PAGE_OFFSET;
-  previewFrame.innerHTML = '<div class="preview-loading">Loading page…</div>';
+  previewFrame.innerHTML = '<div class="preview-loading">Loading full page…</div>';
 
   try {
+    // Wait a frame so the modal layout has real dimensions before measuring.
+    await new Promise((resolve) => requestAnimationFrame(() => requestAnimationFrame(resolve)));
     const canvas = await renderPreviewPage(pageNum);
     previewFrame.innerHTML = '';
     previewFrame.appendChild(canvas);
+    previewFrame.scrollTop = 0;
 
     if (previewPageIndicator) {
-      previewPageIndicator.textContent = `Sample page ${originalPage} of ${previewState.totalOriginalPages} · ${nextIndex + 1}/${previewState.pages.length} in this preview`;
+      previewPageIndicator.textContent = `Page ${originalPage} of ${previewState.totalOriginalPages} · sample ${nextIndex + 1} of ${previewState.pages.length}`;
     }
 
     if (previewPrevBtn) previewPrevBtn.disabled = nextIndex === 0;
@@ -133,9 +158,9 @@ async function generateRandomPreview() {
   setNavOpen(false);
 
   if (!previewFrame) return;
-  previewFrame.innerHTML = '<div class="preview-loading">Loading full-page preview…</div>';
+  previewFrame.innerHTML = '<div class="preview-loading">Opening a full-page sample…</div>';
   if (previewPageIndicator) previewPageIndicator.textContent = '';
-  if (previewRangeLabel) previewRangeLabel.textContent = 'Picking 3 random pages…';
+  if (previewRangeLabel) previewRangeLabel.textContent = 'Choosing 3 random pages after the first 5…';
 
   if (!window.pdfjsLib) {
     previewFrame.innerHTML = '<div class="preview-error">Preview is unavailable right now. Please refresh and try again.</div>';
@@ -161,7 +186,7 @@ async function generateRandomPreview() {
     const lastOriginal = pages[pages.length - 1] + PREVIEW_PAGE_OFFSET;
 
     if (previewRangeLabel) {
-      previewRangeLabel.textContent = `Random sample pages ${firstOriginal}–${lastOriginal} (first 5 pages skipped)`;
+      previewRangeLabel.textContent = `Random sample · pages ${firstOriginal}–${lastOriginal}`;
     }
 
     await showPreviewPage(0);
@@ -170,6 +195,15 @@ async function generateRandomPreview() {
     previewFrame.innerHTML = '<div class="preview-error">The preview could not be loaded. Please try again in a moment.</div>';
   }
 }
+
+let previewResizeTimer = null;
+window.addEventListener('resize', () => {
+  if (!modal?.classList.contains('active') || !previewState.pdf) return;
+  clearTimeout(previewResizeTimer);
+  previewResizeTimer = setTimeout(() => {
+    showPreviewPage(previewState.index);
+  }, 150);
+});
 
 previewPrevBtn?.addEventListener('click', () => showPreviewPage(previewState.index - 1));
 previewNextBtn?.addEventListener('click', () => showPreviewPage(previewState.index + 1));
