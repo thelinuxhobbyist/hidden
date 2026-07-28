@@ -1,0 +1,13 @@
+{
+  "name": "hidden-linux-landing",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "start": "node server.js"
+  },
+  "dependencies": {
+    "express": "^4.21.2",
+    "stripe": "^16.4.0",
+    "resend": "^4.0.0"
+  }
+}

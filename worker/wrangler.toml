@@ -1,0 +1,18 @@
+name = "hidden-linux"
+main = "worker/worker.js"
+compatibility_date = "2026-07-28"
+
+# Bind an R2 bucket named BOOK_BUCKET in the dashboard or via Wrangler.
+[bindings]
+# r2_bucket binding is set via Wrangler secrets or dashboard; example shown below.
+
+[env.production]
+
+# You'll set these via `wrangler secret put` or in Cloudflare dashboard
+# STRIPE_SECRET_KEY = ""
+# RESEND_API_KEY = ""
+
+[[r2_buckets]]
+binding = "BOOK_BUCKET"
+bucket_name = "hidden-linux-ebooks"
+preview_bucket = true
