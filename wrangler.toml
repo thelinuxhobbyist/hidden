@@ -6,5 +6,11 @@ pages_build_output_dir = "public"
   binding = "BOOK_BUCKET"
   bucket_name = "hiddenlinux"
 
+[[d1_databases]]
+  binding = "DB"
+  database_name = "hidden-linux-db"
+  database_id = "1dd7135d-da7e-4707-8e5f-a7d70a76ae13"
+  migrations_dir = "migrations"
+
 # Optional: set account_id if you want to lock this config to a specific Cloudflare account.
 # account_id = "your-account-id"

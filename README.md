@@ -13,7 +13,8 @@ Open the URL Wrangler prints (usually http://localhost:8788).
 
 After purchase, customers can reopen `/library.html`, enter their checkout email, and receive a passwordless login link via Resend. Signed-in buyers download the latest `Hidden_Linux.pdf` from R2 through `/api/ebook`.
 
-- Purchases + sessions are stored as private JSON objects in the same R2 bucket (no public R2 access).
+- Purchases + sessions are stored in D1 (`hidden-linux-db`).
+- The ebook PDF stays in private R2; only authenticated buyers can download it.
 - Uploading a newer `Hidden_Linux.pdf` automatically updates every buyer’s library download.
 - Instant email attachment on purchase is unchanged.
 
@@ -21,12 +22,14 @@ After purchase, customers can reopen `/library.html`, enter their checkout email
 
 | Key in R2 | Endpoint | Access |
 |-----------|----------|--------|
-| `Hidden_Linux_preview.pdf` | `/api/preview` | Public sample for the landing-page preview |
+| `Hidden_Linux_preview.pdf` | `/api/preview` | Public sample (pages 6–end; first 5 skipped). Each click shows 3 random consecutive pages. |
 | `Hidden_Linux.pdf` | `/api/ebook` | Buyers only (magic-link session required) |
 
-Upload a short sample PDF as `Hidden_Linux_preview.pdf` so the “Read Preview” button keeps working.
+Rebuild and upload the preview sample after updating the full ebook:
 
 ```bash
+gs -sDEVICE=pdfwrite -dNOPAUSE -dBATCH -dQUIET -dFirstPage=6 \
+  -sOutputFile=Hidden_Linux_preview.pdf Hidden_Linux.pdf
 npx wrangler r2 object put hiddenlinux/Hidden_Linux_preview.pdf --file=./Hidden_Linux_preview.pdf --remote
 ```
 
@@ -59,6 +62,7 @@ Static site + API live together on Pages:
 - Static files: `public/`
 - API: `functions/api/*` (checkout, webhook, library auth, gated ebook)
 - R2 binding: `BOOK_BUCKET` → bucket `hiddenlinux` (see `wrangler.toml`)
+- D1 binding: `DB` → database `hidden-linux-db` (purchases, magic links, sessions)
 
 ### Deploy
 

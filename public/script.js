@@ -6,6 +6,11 @@ const previewRangeLabel = document.getElementById('previewRangeLabel');
 const previewPageIndicator = document.getElementById('previewPageIndicator');
 const previewPrevBtn = document.getElementById('previewPrevBtn');
 const previewNextBtn = document.getElementById('previewNextBtn');
+const navToggle = document.getElementById('navToggle');
+const navLinks = document.getElementById('navLinks');
+
+// Preview PDF starts at original page 6, so add this offset in the UI.
+const PREVIEW_PAGE_OFFSET = 5;
 
 if (window.pdfjsLib) {
   pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
@@ -15,8 +20,30 @@ const previewState = {
   pdf: null,
   pages: [],
   index: 0,
-  totalPages: 0
+  totalOriginalPages: 0
 };
+
+function setNavOpen(isOpen) {
+  if (!navLinks || !navToggle) return;
+  navLinks.classList.toggle('is-open', isOpen);
+  navToggle.setAttribute('aria-expanded', isOpen ? 'true' : 'false');
+  navToggle.setAttribute('aria-label', isOpen ? 'Close menu' : 'Open menu');
+}
+
+navToggle?.addEventListener('click', () => {
+  const isOpen = !navLinks?.classList.contains('is-open');
+  setNavOpen(isOpen);
+});
+
+navLinks?.querySelectorAll('a').forEach((link) => {
+  link.addEventListener('click', () => setNavOpen(false));
+});
+
+document.addEventListener('click', (event) => {
+  if (!navLinks?.classList.contains('is-open')) return;
+  if (navLinks.contains(event.target) || navToggle?.contains(event.target)) return;
+  setNavOpen(false);
+});
 
 function openModal() {
   modal?.classList.add('active');
@@ -31,6 +58,10 @@ function closeModal() {
 closeBtn?.addEventListener('click', closeModal);
 overlay?.addEventListener('click', closeModal);
 document.addEventListener('keydown', (event) => {
+  if (event.key === 'Escape' && navLinks?.classList.contains('is-open')) {
+    setNavOpen(false);
+  }
+
   if (!modal?.classList.contains('active')) return;
 
   if (event.key === 'Escape') {
@@ -44,7 +75,6 @@ document.addEventListener('keydown', (event) => {
 
 function getPreviewScale() {
   const width = Math.min(window.innerWidth - 120, 980);
-  // PDF page width is roughly 612pt for letter-ish pages; scale to fill stage.
   return Math.max(1.1, Math.min(2.2, width / 612));
 }
 
@@ -57,7 +87,7 @@ async function renderPreviewPage(pageNum) {
   canvas.width = viewport.width;
   canvas.height = viewport.height;
   canvas.className = 'preview-canvas preview-canvas--fullscreen';
-  canvas.setAttribute('aria-label', `Preview page ${pageNum}`);
+  canvas.setAttribute('aria-label', `Preview page ${pageNum + PREVIEW_PAGE_OFFSET}`);
 
   await page.render({ canvasContext: context, viewport }).promise;
   return canvas;
@@ -70,6 +100,7 @@ async function showPreviewPage(index) {
   previewState.index = nextIndex;
 
   const pageNum = previewState.pages[nextIndex];
+  const originalPage = pageNum + PREVIEW_PAGE_OFFSET;
   previewFrame.innerHTML = '<div class="preview-loading">Loading page…</div>';
 
   try {
@@ -78,7 +109,7 @@ async function showPreviewPage(index) {
     previewFrame.appendChild(canvas);
 
     if (previewPageIndicator) {
-      previewPageIndicator.textContent = `Sample page ${pageNum} of ${previewState.totalPages} · ${nextIndex + 1}/${previewState.pages.length} in this preview`;
+      previewPageIndicator.textContent = `Sample page ${originalPage} of ${previewState.totalOriginalPages} · ${nextIndex + 1}/${previewState.pages.length} in this preview`;
     }
 
     if (previewPrevBtn) previewPrevBtn.disabled = nextIndex === 0;
@@ -89,13 +120,22 @@ async function showPreviewPage(index) {
   }
 }
 
+function pickRandomPreviewPages(totalPreviewPages) {
+  if (totalPreviewPages < 1) return [];
+
+  const maxStart = Math.max(1, totalPreviewPages - 2);
+  const startPage = Math.floor(Math.random() * maxStart) + 1;
+  return [startPage, startPage + 1, startPage + 2].filter((page) => page <= totalPreviewPages);
+}
+
 async function generateRandomPreview() {
   openModal();
+  setNavOpen(false);
 
   if (!previewFrame) return;
   previewFrame.innerHTML = '<div class="preview-loading">Loading full-page preview…</div>';
   if (previewPageIndicator) previewPageIndicator.textContent = '';
-  if (previewRangeLabel) previewRangeLabel.textContent = 'Preparing sample pages…';
+  if (previewRangeLabel) previewRangeLabel.textContent = 'Picking 3 random pages…';
 
   if (!window.pdfjsLib) {
     previewFrame.innerHTML = '<div class="preview-error">Preview is unavailable right now. Please refresh and try again.</div>';
@@ -103,32 +143,25 @@ async function generateRandomPreview() {
   }
 
   try {
-    const pdf = await pdfjsLib.getDocument({ url: '/api/preview' }).promise;
-    const totalPages = pdf.numPages;
+    const pdf = await pdfjsLib.getDocument({ url: `/api/preview?t=${Date.now()}` }).promise;
+    const totalPreviewPages = pdf.numPages;
+    const pages = pickRandomPreviewPages(totalPreviewPages);
 
-    if (totalPages < 2) {
+    if (!pages.length) {
       previewFrame.innerHTML = '<div class="preview-error">This preview is temporarily unavailable.</div>';
       return;
     }
 
-    const minStart = 6;
-    const maxStart = Math.max(minStart, totalPages - 2);
-    let startPage;
-    if (totalPages >= minStart + 2) {
-      startPage = Math.floor(Math.random() * (maxStart - minStart + 1)) + minStart;
-    } else {
-      startPage = 1;
-    }
-
-    const pages = [startPage, startPage + 1, startPage + 2].filter((page) => page <= totalPages);
-
     previewState.pdf = pdf;
     previewState.pages = pages;
-    previewState.totalPages = totalPages;
+    previewState.totalOriginalPages = totalPreviewPages + PREVIEW_PAGE_OFFSET;
     previewState.index = 0;
 
+    const firstOriginal = pages[0] + PREVIEW_PAGE_OFFSET;
+    const lastOriginal = pages[pages.length - 1] + PREVIEW_PAGE_OFFSET;
+
     if (previewRangeLabel) {
-      previewRangeLabel.textContent = `Full-page samples ${pages[0]}–${pages[pages.length - 1]} of ${totalPages}`;
+      previewRangeLabel.textContent = `Random sample pages ${firstOriginal}–${lastOriginal} (first 5 pages skipped)`;
     }
 
     await showPreviewPage(0);
@@ -141,8 +174,7 @@ async function generateRandomPreview() {
 previewPrevBtn?.addEventListener('click', () => showPreviewPage(previewState.index - 1));
 previewNextBtn?.addEventListener('click', () => showPreviewPage(previewState.index + 1));
 
-const previewButtons = [document.getElementById('openPreviewBtn'), document.getElementById('heroPreviewBtn')];
-previewButtons.forEach((button) => button?.addEventListener('click', generateRandomPreview));
+document.getElementById('heroPreviewBtn')?.addEventListener('click', generateRandomPreview);
 
 async function loadSiteConfig() {
   try {

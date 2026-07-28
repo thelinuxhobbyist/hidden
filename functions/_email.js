@@ -32,13 +32,17 @@ export async function sendEbookEmail(env, email, options = {}) {
       subject: 'Your Hidden Linux ebook',
       html: `
         <p>Thanks for your purchase!</p>
-        <p>Your Hidden Linux ebook PDF is attached to this email.</p>
+        <p>Your <strong>Hidden Linux</strong> ebook PDF is attached to this email and ready to read.</p>
         <p>
-          You also have <strong>lifetime access &amp; future updates</strong>.
-          Anytime you need the latest version, open your library and sign in with this email:
+          You also have <strong>lifetime access to this ebook and all future updates</strong>.
+          Whenever a new version is released, you can download the latest edition from your personal library
+          by signing in with the same email address you used for your purchase.
         </p>
-        <p><a href="${libraryUrl}">${libraryUrl}</a></p>
-        <p>If you have any trouble opening it, reply to this email and we’ll help.</p>
+        <p><strong>Access your library:</strong><br />
+          <a href="${libraryUrl}">${libraryUrl}</a>
+        </p>
+        <p>If you have any questions or need assistance accessing your ebook, simply reply to this email and we'll be happy to help.</p>
+        <p>Enjoy the ebook!</p>
       `,
       attachments: [
         {

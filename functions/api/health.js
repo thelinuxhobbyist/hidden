@@ -29,6 +29,7 @@ export async function onRequestGet({ env }) {
     webhookSecretConfigured: Boolean(env.STRIPE_WEBHOOK_SECRET),
     pdfFound,
     previewFound,
-    libraryEnabled: true
+    libraryEnabled: true,
+    d1Configured: Boolean(env.DB)
   });
 }

@@ -5,30 +5,38 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Hidden Linux — Discovering the OS That Quietly Runs the World</title>
   <link rel="stylesheet" href="style.css" />
-  <!-- Google Fonts for modern typography -->
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
 </head>
 <body>
 
-  <!-- Navigation -->
   <nav class="navbar">
     <div class="container nav-container">
-      <a href="#" class="logo">
+      <a href="/" class="logo">
         <span class="terminal-prompt">&gt;_</span> Hidden Linux
       </a>
-      <div class="nav-links">
+      <button
+        class="nav-toggle"
+        id="navToggle"
+        type="button"
+        aria-label="Open menu"
+        aria-expanded="false"
+        aria-controls="navLinks"
+      >
+        <span></span>
+        <span></span>
+        <span></span>
+      </button>
+      <div class="nav-links" id="navLinks">
         <a href="#about" class="nav-link">About</a>
         <a href="#contents" class="nav-link">Contents</a>
         <a href="/library.html" class="nav-link">My Library</a>
-        <button class="btn btn-outline nav-action" id="openPreviewBtn">Read Preview</button>
         <a href="#buy" class="btn btn-primary nav-action">Buy Ebook</a>
       </div>
     </div>
   </nav>
 
-  <!-- Hero Section -->
   <header class="hero">
     <div class="container hero-grid">
       <div class="hero-content">
@@ -38,7 +46,7 @@
         </p>
         <div class="hero-actions">
           <a href="#buy" class="btn btn-primary btn-large">Get Instant Access — <span data-price>$19</span></a>
-          <button class="btn btn-secondary btn-large" id="heroPreviewBtn">
+          <button class="btn btn-secondary btn-large" id="heroPreviewBtn" type="button">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7z"></path><circle cx="12" cy="12" r="3"></circle></svg>
             Preview Ebook
           </button>
@@ -64,7 +72,6 @@
     </div>
   </header>
 
-  <!-- Social Proof / Key Stats -->
   <section class="stats-bar">
     <div class="container stats-grid">
       <div class="stat-item">
@@ -82,7 +89,6 @@
     </div>
   </section>
 
-  <!-- What's Inside / Value Proposition -->
   <section id="about" class="section">
     <div class="container">
       <div class="section-title">
@@ -109,34 +115,32 @@
     </div>
   </section>
 
-  <!-- Table of Contents Section -->
   <section id="contents" class="section bg-alt">
     <div class="container">
       <div class="section-title">
-        <h2>What you’ll discover</h2>
-        <p>A concise look at the ideas that make this guide worth reading.</p>
+        <h2>Inside the ebook</h2>
+        <p>54 pages covering history, infrastructure, and the practical ideas behind Linux’s quiet dominance.</p>
       </div>
       <div class="toc-grid">
         <article class="toc-part featured">
-          <span class="part-label">The invisible engine</span>
-          <h3>Why Linux matters more than most people realize</h3>
-          <p>From smartphones to supercomputers, the story of Linux is the story of modern infrastructure.</p>
+          <span class="part-label">Part one</span>
+          <h3>Origins and open source</h3>
+          <p>How a student project became the foundation of modern computing.</p>
         </article>
         <article class="toc-part">
-          <span class="part-label">Everyday impact</span>
-          <h3>Why it shows up in cars, homes, and the cloud</h3>
-          <p>See how the same operating system powers devices and systems you rely on every day.</p>
+          <span class="part-label">Part two</span>
+          <h3>Infrastructure at scale</h3>
+          <p>Servers, clouds, and devices — where Linux quietly runs the show.</p>
         </article>
         <article class="toc-part">
-          <span class="part-label">Practical insight</span>
-          <h3>A clearer picture of the terminal, servers, and sovereignty</h3>
-          <p>Understand the commands, the systems, and the larger shift shaping the future of technology.</p>
+          <span class="part-label">Part three</span>
+          <h3>Skills and sovereignty</h3>
+          <p>Terminal basics, digital independence, and what comes next.</p>
         </article>
       </div>
     </div>
   </section>
 
-  <!-- Buy / Pricing Section -->
   <section id="buy" class="section">
     <div class="container">
       <div class="pricing-card">
@@ -147,12 +151,11 @@
         </div>
         <ul class="pricing-features">
           <li>✓ Full 54-page PDF Ebook download</li>
-          <li>✓ Delivered instantly to your email inbox via Resend</li>
+          <li>✓ Delivered instantly to your email inbox</li>
           <li>✓ Includes complete Glossary of technical terms</li>
           <li>✓ Formatted for reading on phone, tablet, or desktop</li>
-          <li>✓ Lifetime access & future updates</li>
+          <li>✓ Lifetime access & future updates via My Library</li>
         </ul>
-        <!-- Checkout button attached to script.js -->
         <button class="btn btn-primary btn-large btn-block" onclick="checkout()">
           Buy Now via Stripe
         </button>
@@ -170,14 +173,12 @@
     </div>
   </section>
 
-  <!-- Footer -->
   <footer class="footer">
     <div class="container">
       <p>&copy; 2026 Hidden Linux Book. All rights reserved.</p>
     </div>
   </footer>
 
-  <!-- Purchase result overlay (shown after Stripe redirect) -->
   <div class="purchase-overlay" id="purchaseOverlay" hidden>
     <div class="purchase-overlay__card" role="dialog" aria-modal="true" aria-labelledby="purchaseOverlayTitle">
       <div class="purchase-overlay__icon" id="purchaseOverlayIcon" aria-hidden="true">✓</div>
@@ -191,7 +192,6 @@
     </div>
   </div>
 
-  <!-- PDF Preview Modal (full page) -->
   <div class="modal" id="previewModal">
     <div class="modal-overlay" id="modalOverlay"></div>
     <div class="modal-container modal-container--fullscreen">
@@ -200,7 +200,7 @@
           <h3>Ebook Preview — Hidden Linux</h3>
           <p class="modal-subtitle" id="previewRangeLabel">Sample pages from the book</p>
         </div>
-        <button class="modal-close" id="closeModalBtn" aria-label="Close preview">&times;</button>
+        <button class="modal-close" id="closeModalBtn" aria-label="Close preview" type="button">&times;</button>
       </div>
       <div class="modal-body modal-body--preview" aria-live="polite">
         <div class="preview-stage">
@@ -213,16 +213,13 @@
         <p class="preview-page-indicator" id="previewPageIndicator"></p>
       </div>
       <div class="modal-footer">
-        <p>Enjoyed the preview? Get the full 54-page PDF sent straight to your inbox.</p>
+        <p>Want the full 54-page PDF? Get instant delivery after checkout.</p>
         <a href="#buy" class="btn btn-primary" id="modalBuyBtn" onclick="closeModal()">Buy Ebook Now (<span data-price>$19</span>)</a>
       </div>
     </div>
   </div>
 
-  <!-- PDF.js Library (Required for script.js) -->
   <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
-
-  <!-- Load live price before the rest of the page script (avoids stale cache showing old price) -->
   <script>
     fetch('/api/config?t=' + Date.now(), { cache: 'no-store' })
       .then(function (response) { return response.json(); })
@@ -237,8 +234,6 @@
       })
       .catch(function () {});
   </script>
-
-  <!-- Your Custom JavaScript File -->
-  <script src="script.js?v=3"></script>
+  <script src="script.js?v=4"></script>
 </body>
 </html>

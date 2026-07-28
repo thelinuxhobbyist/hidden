@@ -24,24 +24,11 @@ function addDays(days) {
   return new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString();
 }
 
-function purchaseEmailKey(email) {
-  return `purchases/by-email/${normalizeEmail(email)}.json`;
-}
-
-function purchaseSessionKey(sessionId) {
-  return `purchases/by-session/${sessionId}.json`;
-}
-
-function loginTokenKey(tokenHash) {
-  return `auth/login-tokens/${tokenHash}.json`;
-}
-
-function sessionKey(tokenHash) {
-  return `auth/sessions/${tokenHash}.json`;
-}
-
-function loginRateKey(email) {
-  return `auth/rate-limit/${normalizeEmail(email)}.json`;
+function requireDb(env) {
+  if (!env.DB) {
+    throw new Error('D1 database binding DB is not configured');
+  }
+  return env.DB;
 }
 
 async function sha256Hex(value) {
@@ -56,30 +43,6 @@ function randomToken(bytes = 32) {
   return [...arr].map((b) => b.toString(16).padStart(2, '0')).join('');
 }
 
-async function putJson(env, key, value) {
-  await env.BOOK_BUCKET.put(key, JSON.stringify(value), {
-    httpMetadata: { contentType: 'application/json' }
-  });
-}
-
-async function getJson(env, key) {
-  const obj = await env.BOOK_BUCKET.get(key);
-  if (!obj) return null;
-  try {
-    return await obj.json();
-  } catch {
-    return null;
-  }
-}
-
-async function deleteKey(env, key) {
-  try {
-    await env.BOOK_BUCKET.delete(key);
-  } catch {
-    // ignore missing keys
-  }
-}
-
 export async function recordPurchase(env, {
   email,
   stripeSessionId,
@@ -87,12 +50,17 @@ export async function recordPurchase(env, {
   stripePaymentIntent = null,
   product = PRODUCT_KEY
 }) {
+  const db = requireDb(env);
   const normalized = normalizeEmail(email);
   if (!normalized || !stripeSessionId) {
     return { ok: false, error: 'Missing email or stripe session id' };
   }
 
-  const existingBySession = await getJson(env, purchaseSessionKey(stripeSessionId));
+  const existingBySession = await db
+    .prepare('SELECT * FROM purchases WHERE stripe_session_id = ?')
+    .bind(stripeSessionId)
+    .first();
+
   if (existingBySession) {
     return { ok: true, purchase: existingBySession, created: false };
   }
@@ -109,17 +77,30 @@ export async function recordPurchase(env, {
     last_email_at: null
   };
 
-  await putJson(env, purchaseSessionKey(stripeSessionId), purchase);
-
-  const existingByEmail = await getJson(env, purchaseEmailKey(normalized));
-  if (!existingByEmail || existingByEmail.purchased_at < purchase.purchased_at) {
-    await putJson(env, purchaseEmailKey(normalized), purchase);
-  }
+  await db
+    .prepare(`
+      INSERT INTO purchases (
+        id, email, stripe_session_id, stripe_customer_id, stripe_payment_intent,
+        product, purchased_at, created_at, last_email_at
+      ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    `)
+    .bind(
+      purchase.id,
+      purchase.email,
+      purchase.stripe_session_id,
+      purchase.stripe_customer_id,
+      purchase.stripe_payment_intent,
+      purchase.product,
+      purchase.purchased_at,
+      purchase.created_at,
+      purchase.last_email_at
+    )
+    .run();
 
   return { ok: true, purchase, created: true };
 }
 
-export async function shouldSendPurchaseEmail(env, purchase) {
+export async function shouldSendPurchaseEmail(_env, purchase) {
   if (!purchase) return false;
   if (!purchase.last_email_at) return true;
   const last = new Date(purchase.last_email_at).getTime();
@@ -127,42 +108,67 @@ export async function shouldSendPurchaseEmail(env, purchase) {
 }
 
 export async function markPurchaseEmailSent(env, purchase) {
-  if (!purchase?.stripe_session_id || !purchase?.email) return;
-  const updated = { ...purchase, last_email_at: nowIso() };
-  await putJson(env, purchaseSessionKey(purchase.stripe_session_id), updated);
-  await putJson(env, purchaseEmailKey(purchase.email), updated);
-  return updated;
+  if (!purchase?.stripe_session_id) return;
+  const db = requireDb(env);
+  const lastEmailAt = nowIso();
+  await db
+    .prepare('UPDATE purchases SET last_email_at = ? WHERE stripe_session_id = ?')
+    .bind(lastEmailAt, purchase.stripe_session_id)
+    .run();
+  return { ...purchase, last_email_at: lastEmailAt };
 }
 
 export async function hasPurchase(env, email) {
-  const purchase = await getJson(env, purchaseEmailKey(email));
+  const purchase = await getPurchaseByEmail(env, email);
   return Boolean(purchase?.email);
 }
 
 export async function getPurchaseByEmail(env, email) {
-  return getJson(env, purchaseEmailKey(email));
+  const db = requireDb(env);
+  return db
+    .prepare('SELECT * FROM purchases WHERE email = ? ORDER BY purchased_at DESC LIMIT 1')
+    .bind(normalizeEmail(email))
+    .first();
 }
 
 async function allowLoginRequest(env, email) {
-  const key = loginRateKey(email);
-  const current = (await getJson(env, key)) || { count: 0, window: Date.now() };
+  const db = requireDb(env);
+  const normalized = normalizeEmail(email);
   const hourMs = 60 * 60 * 1000;
+  const now = Date.now();
+  const current = await db
+    .prepare('SELECT count, window_started_at FROM login_rate_limits WHERE email = ?')
+    .bind(normalized)
+    .first();
 
-  if (Date.now() - current.window > hourMs) {
-    current.count = 0;
-    current.window = Date.now();
+  let count = current?.count || 0;
+  let windowStartedAt = current?.window_started_at || now;
+
+  if (now - windowStartedAt > hourMs) {
+    count = 0;
+    windowStartedAt = now;
   }
 
-  if (current.count >= MAX_LOGIN_REQUESTS_PER_HOUR) {
+  if (count >= MAX_LOGIN_REQUESTS_PER_HOUR) {
     return false;
   }
 
-  current.count += 1;
-  await putJson(env, key, current);
+  await db
+    .prepare(`
+      INSERT INTO login_rate_limits (email, count, window_started_at)
+      VALUES (?, ?, ?)
+      ON CONFLICT(email) DO UPDATE SET
+        count = excluded.count,
+        window_started_at = excluded.window_started_at
+    `)
+    .bind(normalized, count + 1, windowStartedAt)
+    .run();
+
   return true;
 }
 
 export async function createLoginToken(env, email) {
+  const db = requireDb(env);
   const normalized = normalizeEmail(email);
   if (!isValidEmail(normalized)) {
     return { ok: false, error: 'Invalid email' };
@@ -174,30 +180,37 @@ export async function createLoginToken(env, email) {
 
   const purchased = await hasPurchase(env, normalized);
   if (!purchased) {
-    // Do not reveal whether the email owns a purchase.
     return { ok: true, sent: false };
   }
 
   const token = randomToken(32);
   const tokenHash = await sha256Hex(token);
-  const record = {
-    email: normalized,
-    expires_at: addMinutes(LOGIN_TOKEN_MINUTES),
-    created_at: nowIso(),
-    used_at: null
-  };
+  const expiresAt = addMinutes(LOGIN_TOKEN_MINUTES);
+  const createdAt = nowIso();
 
-  await putJson(env, loginTokenKey(tokenHash), record);
-  return { ok: true, sent: true, token, email: normalized, expiresAt: record.expires_at };
+  await db
+    .prepare(`
+      INSERT INTO login_tokens (token_hash, email, expires_at, created_at, used_at)
+      VALUES (?, ?, ?, ?, NULL)
+    `)
+    .bind(tokenHash, normalized, expiresAt, createdAt)
+    .run();
+
+  return { ok: true, sent: true, token, email: normalized, expiresAt };
 }
 
 export async function consumeLoginToken(env, token) {
+  const db = requireDb(env);
   if (!token || typeof token !== 'string') {
     return { ok: false, error: 'Missing token' };
   }
 
   const tokenHash = await sha256Hex(token);
-  const record = await getJson(env, loginTokenKey(tokenHash));
+  const record = await db
+    .prepare('SELECT * FROM login_tokens WHERE token_hash = ?')
+    .bind(tokenHash)
+    .first();
+
   if (!record) {
     return { ok: false, error: 'Invalid or expired link' };
   }
@@ -207,37 +220,48 @@ export async function consumeLoginToken(env, token) {
   }
 
   if (new Date(record.expires_at).getTime() < Date.now()) {
-    await deleteKey(env, loginTokenKey(tokenHash));
+    await db.prepare('DELETE FROM login_tokens WHERE token_hash = ?').bind(tokenHash).run();
     return { ok: false, error: 'This login link has expired' };
   }
 
-  record.used_at = nowIso();
-  await putJson(env, loginTokenKey(tokenHash), record);
+  await db
+    .prepare('UPDATE login_tokens SET used_at = ? WHERE token_hash = ?')
+    .bind(nowIso(), tokenHash)
+    .run();
 
   const sessionToken = randomToken(32);
   const sessionHash = await sha256Hex(sessionToken);
-  const session = {
-    email: record.email,
-    expires_at: addDays(SESSION_DAYS),
-    created_at: nowIso()
-  };
-  await putJson(env, sessionKey(sessionHash), session);
+  const expiresAt = addDays(SESSION_DAYS);
+  const createdAt = nowIso();
 
-  return { ok: true, sessionToken, email: record.email, expiresAt: session.expires_at };
+  await db
+    .prepare(`
+      INSERT INTO sessions (token_hash, email, expires_at, created_at)
+      VALUES (?, ?, ?, ?)
+    `)
+    .bind(sessionHash, record.email, expiresAt, createdAt)
+    .run();
+
+  return { ok: true, sessionToken, email: record.email, expiresAt };
 }
 
 export async function getSessionFromRequest(env, request) {
+  const db = requireDb(env);
   const cookieHeader = request.headers.get('Cookie') || '';
   const match = cookieHeader.match(new RegExp(`(?:^|;\\s*)${SESSION_COOKIE}=([^;]+)`));
   const sessionToken = match ? decodeURIComponent(match[1]) : null;
   if (!sessionToken) return null;
 
   const sessionHash = await sha256Hex(sessionToken);
-  const session = await getJson(env, sessionKey(sessionHash));
+  const session = await db
+    .prepare('SELECT * FROM sessions WHERE token_hash = ?')
+    .bind(sessionHash)
+    .first();
+
   if (!session) return null;
 
   if (new Date(session.expires_at).getTime() < Date.now()) {
-    await deleteKey(env, sessionKey(sessionHash));
+    await db.prepare('DELETE FROM sessions WHERE token_hash = ?').bind(sessionHash).run();
     return null;
   }
 
@@ -247,7 +271,10 @@ export async function getSessionFromRequest(env, request) {
 export async function clearSession(env, request) {
   const session = await getSessionFromRequest(env, request);
   if (session?.sessionHash) {
-    await deleteKey(env, sessionKey(session.sessionHash));
+    await requireDb(env)
+      .prepare('DELETE FROM sessions WHERE token_hash = ?')
+      .bind(session.sessionHash)
+      .run();
   }
 }
 
