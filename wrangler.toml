@@ -1,0 +1,10 @@
+name = "hidden-linux"
+compatibility_date = "2026-07-28"
+pages_build_output_dir = "public"
+
+[[r2_buckets]]
+  binding = "BOOK_BUCKET"
+  bucket_name = "hiddenlinux"
+
+# Optional: set account_id if you want to lock this config to a specific Cloudflare account.
+# account_id = "your-account-id"

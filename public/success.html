@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Payment successful — Hidden Linux</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    .success-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 20px;
+      background:
+        radial-gradient(circle at top left, rgba(16, 185, 129, 0.18), transparent 40%),
+        radial-gradient(circle at bottom right, rgba(59, 130, 246, 0.12), transparent 35%),
+        #0f172a;
+    }
+
+    .success-card {
+      width: min(560px, 100%);
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 40px 32px 32px;
+      text-align: center;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.45);
+    }
+
+    .success-card__icon {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 20px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: #ecfdf5;
+      color: #059669;
+      font-size: 2.2rem;
+      font-weight: 700;
+    }
+
+    .success-card h1 {
+      font-size: 2rem;
+      margin-bottom: 12px;
+      color: #0f172a;
+    }
+
+    .success-card p {
+      color: #64748b;
+      margin-bottom: 14px;
+      font-size: 1.05rem;
+    }
+
+    .success-card__status {
+      font-weight: 700;
+      color: #065f46 !important;
+      background: #ecfdf5;
+      border: 1px solid #6ee7b7;
+      border-radius: 10px;
+      padding: 14px 16px;
+      margin: 20px 0 28px;
+    }
+
+    .success-card__status.is-error {
+      color: #9a3412 !important;
+      background: #fff7ed;
+      border-color: #fdba74;
+    }
+
+    .success-card .btn {
+      width: 100%;
+    }
+  </style>
+</head>
+<body>
+  <main class="success-page">
+    <div class="success-card">
+      <div class="success-card__icon" aria-hidden="true">✓</div>
+      <h1>Payment successful</h1>
+      <p>
+        Thank you for purchasing <strong>Hidden Linux</strong>.
+        Your payment has gone through.
+      </p>
+      <p>
+        We’re sending the ebook PDF to the email address you entered at checkout.
+        Please check your <strong>inbox</strong> and <strong>spam/junk</strong> folder.
+      </p>
+      <p class="success-card__status" id="deliveryStatus">Confirming your order and sending the ebook…</p>
+      <a class="btn btn-primary btn-large" href="/">Back to Hidden Linux</a>
+    </div>
+  </main>
+
+  <script>
+    (async function () {
+      const statusEl = document.getElementById('deliveryStatus');
+      const params = new URLSearchParams(window.location.search);
+      const sessionId = params.get('session_id');
+
+      if (!sessionId) {
+        statusEl.textContent = 'Your payment succeeded. Check the email you used at checkout for your ebook PDF.';
+        return;
+      }
+
+      try {
+        const response = await fetch('/api/fulfill', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ session_id: sessionId })
+        });
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+          throw new Error(data.error || 'Delivery failed');
+        }
+
+        statusEl.textContent = data.email
+          ? `Ebook sent to ${data.email}. Check inbox and spam.`
+          : 'Ebook sent. Check your inbox and spam folder.';
+      } catch (error) {
+        console.error(error);
+        statusEl.classList.add('is-error');
+        statusEl.textContent = 'Payment succeeded, but email delivery may still be processing via Stripe webhook. Check your inbox shortly, or contact support with your receipt.';
+      }
+    })();
+  </script>
+</body>
+</html>

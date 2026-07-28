@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Admin — Hidden Linux</title>
+  <link rel="stylesheet" href="style.css" />
+  <style>
+    body {
+      background: #0f172a;
+      color: #e2e8f0;
+      min-height: 100vh;
+    }
+
+    .admin-wrap {
+      max-width: 560px;
+      margin: 0 auto;
+      padding: 48px 20px;
+    }
+
+    .admin-card {
+      background: #1e293b;
+      border: 1px solid #334155;
+      border-radius: 16px;
+      padding: 28px;
+    }
+
+    .admin-card h1 {
+      font-size: 1.6rem;
+      margin-bottom: 8px;
+      color: #f8fafc;
+    }
+
+    .admin-card .lede {
+      color: #94a3b8;
+      margin-bottom: 24px;
+    }
+
+    label {
+      display: block;
+      font-weight: 600;
+      margin: 16px 0 8px;
+      color: #e2e8f0;
+    }
+
+    input, textarea {
+      width: 100%;
+      padding: 12px 14px;
+      border-radius: 10px;
+      border: 1px solid #475569;
+      background: #0f172a;
+      color: #f8fafc;
+      font: inherit;
+    }
+
+    textarea {
+      min-height: 90px;
+      resize: vertical;
+    }
+
+    .row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+
+    .actions {
+      display: flex;
+      gap: 12px;
+      margin-top: 24px;
+      flex-wrap: wrap;
+    }
+
+    .btn-secondary {
+      background: #334155;
+      color: #f8fafc;
+    }
+
+    .status {
+      margin-top: 16px;
+      padding: 12px 14px;
+      border-radius: 10px;
+      display: none;
+    }
+
+    .status.show {
+      display: block;
+    }
+
+    .status.ok {
+      background: #064e3b;
+      color: #a7f3d0;
+    }
+
+    .status.err {
+      background: #7c2d12;
+      color: #fed7aa;
+    }
+
+    .hint {
+      font-size: 0.85rem;
+      color: #94a3b8;
+      margin-top: 6px;
+    }
+
+    a.back {
+      display: inline-block;
+      margin-bottom: 18px;
+      color: #94a3b8;
+    }
+  </style>
+</head>
+<body>
+  <div class="admin-wrap">
+    <a class="back" href="/">← Back to site</a>
+    <div class="admin-card">
+      <h1>Site settings</h1>
+      <p class="lede">Change the ebook price and product text. Checkout uses these values immediately.</p>
+
+      <div id="loginPanel">
+        <label for="email">Admin email</label>
+        <input id="email" type="email" autocomplete="username" placeholder="Email" />
+
+        <label for="password">Admin password</label>
+        <input id="password" type="password" autocomplete="current-password" placeholder="Password" />
+        <div class="actions">
+          <button class="btn btn-primary" id="loginBtn" type="button">Unlock</button>
+        </div>
+      </div>
+
+      <form id="settingsForm" hidden>
+        <div class="row">
+          <div>
+            <label for="priceDollars">Price (USD)</label>
+            <input id="priceDollars" type="number" min="0.50" step="0.01" required />
+            <p class="hint">Minimum $0.50</p>
+          </div>
+          <div>
+            <label for="currency">Currency</label>
+            <input id="currency" type="text" value="usd" required />
+          </div>
+        </div>
+
+        <label for="productName">Product name</label>
+        <input id="productName" type="text" required />
+
+        <label for="productDescription">Product description</label>
+        <textarea id="productDescription" required></textarea>
+
+        <div class="actions">
+          <button class="btn btn-primary" type="submit">Save settings</button>
+          <button class="btn btn-secondary" id="reloadBtn" type="button">Reload</button>
+        </div>
+      </form>
+
+      <div class="status" id="status"></div>
+    </div>
+  </div>
+
+  <script>
+    const loginPanel = document.getElementById('loginPanel');
+    const settingsForm = document.getElementById('settingsForm');
+    const statusEl = document.getElementById('status');
+    const emailInput = document.getElementById('email');
+    const passwordInput = document.getElementById('password');
+
+    function getEmail() {
+      return (sessionStorage.getItem('hl_admin_email') || emailInput.value).trim().toLowerCase();
+    }
+
+    function getPassword() {
+      return sessionStorage.getItem('hl_admin_password') || passwordInput.value.trim();
+    }
+
+    function setStatus(message, ok) {
+      statusEl.textContent = message;
+      statusEl.className = `status show ${ok ? 'ok' : 'err'}`;
+    }
+
+    async function api(path, options = {}) {
+      const response = await fetch(path, {
+        ...options,
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Bearer ${getPassword()}`,
+          'X-Admin-Email': getEmail(),
+          ...(options.headers || {})
+        }
+      });
+      const data = await response.json().catch(() => ({}));
+      if (!response.ok) {
+        throw new Error(data.error || `Request failed (${response.status})`);
+      }
+      return data;
+    }
+
+    function fillForm(config) {
+      document.getElementById('priceDollars').value = (config.priceCents / 100).toFixed(2);
+      document.getElementById('currency').value = config.currency || 'usd';
+      document.getElementById('productName').value = config.productName || '';
+      document.getElementById('productDescription').value = config.productDescription || '';
+    }
+
+    async function loadSettings() {
+      const config = await api('/api/admin/config');
+      fillForm(config);
+      loginPanel.hidden = true;
+      settingsForm.hidden = false;
+      setStatus(`Loaded. Current price: ${config.priceLabel}`, true);
+    }
+
+    document.getElementById('loginBtn').addEventListener('click', async () => {
+      try {
+        sessionStorage.setItem('hl_admin_email', emailInput.value.trim().toLowerCase());
+        sessionStorage.setItem('hl_admin_password', passwordInput.value.trim());
+        await loadSettings();
+      } catch (error) {
+        sessionStorage.removeItem('hl_admin_email');
+        sessionStorage.removeItem('hl_admin_password');
+        setStatus(error.message, false);
+      }
+    });
+
+    document.getElementById('reloadBtn').addEventListener('click', async () => {
+      try {
+        await loadSettings();
+      } catch (error) {
+        setStatus(error.message, false);
+      }
+    });
+
+    settingsForm.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      try {
+        const dollars = Number(document.getElementById('priceDollars').value);
+        const saved = await api('/api/admin/config', {
+          method: 'PUT',
+          body: JSON.stringify({
+            priceCents: Math.round(dollars * 100),
+            currency: document.getElementById('currency').value.trim(),
+            productName: document.getElementById('productName').value.trim(),
+            productDescription: document.getElementById('productDescription').value.trim()
+          })
+        });
+        fillForm(saved);
+        setStatus(`Saved. Live site will show ${saved.priceLabel}. Open the homepage and hard-refresh if needed.`, true);
+      } catch (error) {
+        setStatus(error.message, false);
+      }
+    });
+
+    if (sessionStorage.getItem('hl_admin_email') && sessionStorage.getItem('hl_admin_password')) {
+      loadSettings().catch(() => {
+        sessionStorage.removeItem('hl_admin_email');
+        sessionStorage.removeItem('hl_admin_password');
+      });
+    }
+  </script>
+</body>
+</html>

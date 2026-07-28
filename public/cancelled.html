@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Checkout cancelled — Hidden Linux</title>
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;600&family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+  <style>
+    .success-page {
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 32px 20px;
+      background:
+        radial-gradient(circle at top left, rgba(100, 116, 139, 0.25), transparent 40%),
+        #0f172a;
+    }
+
+    .success-card {
+      width: min(560px, 100%);
+      background: #ffffff;
+      border-radius: 18px;
+      padding: 40px 32px 32px;
+      text-align: center;
+      box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.45);
+    }
+
+    .success-card__icon {
+      width: 72px;
+      height: 72px;
+      margin: 0 auto 20px;
+      border-radius: 999px;
+      display: grid;
+      place-items: center;
+      background: #f1f5f9;
+      color: #475569;
+      font-size: 2.2rem;
+      font-weight: 700;
+    }
+
+    .success-card h1 {
+      font-size: 2rem;
+      margin-bottom: 12px;
+      color: #0f172a;
+    }
+
+    .success-card p {
+      color: #64748b;
+      margin-bottom: 14px;
+      font-size: 1.05rem;
+    }
+
+    .success-card .btn {
+      width: 100%;
+      margin-top: 18px;
+    }
+  </style>
+</head>
+<body>
+  <main class="success-page">
+    <div class="success-card">
+      <div class="success-card__icon" aria-hidden="true">!</div>
+      <h1>Checkout cancelled</h1>
+      <p>No payment was taken. You can go back and buy the ebook whenever you’re ready.</p>
+      <a class="btn btn-primary btn-large" href="/#buy">Return to buy</a>
+    </div>
+  </main>
+</body>
+</html>

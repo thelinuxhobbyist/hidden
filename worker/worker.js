@@ -1,8 +1,29 @@
-import { encode } from 'base64-arraybuffer';
+function arrayBufferToBase64(buffer) {
+  const bytes = new Uint8Array(buffer);
+  let binary = '';
+  const chunkSize = 0x8000;
+
+  for (let i = 0; i < bytes.length; i += chunkSize) {
+    binary += String.fromCharCode(...bytes.subarray(i, i + chunkSize));
+  }
+
+  return btoa(binary);
+}
+
+function withCorsHeaders(headers = new Headers()) {
+  headers.set('Access-Control-Allow-Origin', '*');
+  headers.set('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
+  headers.set('Access-Control-Allow-Headers', 'Content-Type');
+  return headers;
+}
 
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
+    if (request.method === 'OPTIONS') {
+      return new Response(null, { status: 204, headers: withCorsHeaders() });
+    }
 
     // Serve API endpoints
     if (url.pathname === '/api/ebook') {
@@ -10,7 +31,7 @@ export default {
       const obj = await env.BOOK_BUCKET.get('Hidden_Linux.pdf');
       if (!obj) return new Response('PDF not found', { status: 404 });
 
-      const headers = new Headers();
+      const headers = withCorsHeaders(new Headers());
       headers.set('Content-Type', 'application/pdf');
       headers.set('Content-Disposition', 'inline; filename="Hidden_Linux.pdf"');
       return new Response(obj.body, { headers });
@@ -28,7 +49,7 @@ export default {
       params.append('line_items[0][price_data][currency]', 'usd');
       params.append('line_items[0][price_data][product_data][name]', 'Hidden Linux Ebook');
       params.append('line_items[0][price_data][product_data][description]', 'Instant PDF delivery via email');
-      params.append('line_items[0][price_data][unit_amount]', '1900');
+      params.append('line_items[0][price_data][unit_amount]', '50');
       params.append('line_items[0][quantity]', '1');
       if (email) params.append('customer_email', email);
 
@@ -42,8 +63,9 @@ export default {
       });
 
       const data = await resp.json();
-      if (data.url) return new Response(JSON.stringify({ url: data.url }), { status: 200, headers: { 'Content-Type': 'application/json' } });
-      return new Response(JSON.stringify({ error: 'Could not create session', detail: data }), { status: 500, headers: { 'Content-Type': 'application/json' } });
+      const headers = withCorsHeaders(new Headers({ 'Content-Type': 'application/json' }));
+      if (data.url) return new Response(JSON.stringify({ url: data.url }), { status: 200, headers });
+      return new Response(JSON.stringify({ error: 'Could not create session', detail: data }), { status: 500, headers });
     }
 
     if (url.pathname === '/api/webhook/stripe' && request.method === 'POST') {
@@ -66,7 +88,9 @@ export default {
             const obj = await env.BOOK_BUCKET.get('Hidden_Linux.pdf');
             if (obj) {
               const arrayBuffer = await obj.arrayBuffer();
-              const b64 = encode(arrayBuffer);
+              const b64 = arrayBufferToBase64(arrayBuffer);
+
+              const pdfUrl = env.PDF_URL || 'https://cdn.hiddenlinux.com/Hidden_Linux.pdf';
 
               // Send via Resend REST API
               const resendResp = await fetch('https://api.resend.com/emails', {
@@ -76,10 +100,10 @@ export default {
                   'Content-Type': 'application/json'
                 },
                 body: JSON.stringify({
-                  from: 'Hidden Linux <onboarding@resend.dev>',
+                  from: 'Hidden Linux <orders@hiddenlinux.com>',
                   to: [email],
                   subject: 'Your Hidden Linux ebook',
-                  html: `<p>Thanks for your purchase — your ebook is attached.</p>`,
+                  html: `<p>Thanks for your purchase — your ebook is attached below and also available at <a href="${pdfUrl}">${pdfUrl}</a>.</p>`,
                   attachments: [
                     {
                       filename: 'Hidden_Linux.pdf',
@@ -98,7 +122,7 @@ export default {
         }
       }
 
-      return new Response('ok', { status: 200 });
+      return new Response('ok', { status: 200, headers: withCorsHeaders() });
     }
 
     // Fall back to fetching static site assets via Worker Sites (if configured)

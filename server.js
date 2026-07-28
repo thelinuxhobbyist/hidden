@@ -41,7 +41,7 @@ app.post('/api/checkout', async (req, res) => {
             name: 'Hidden Linux Ebook',
             description: 'Instant PDF delivery via email'
           },
-          unit_amount: 1900
+          unit_amount: 50
         },
         quantity: 1
       }],
@@ -82,7 +82,7 @@ app.post('/api/webhook/stripe', express.raw({ type: 'application/json' }), async
     if (email) {
       try {
         await resend.emails.send({
-          from: 'Hidden Linux <onboarding@resend.dev>',
+          from: 'Hidden Linux <orders@hiddenlinux.com>',
           to: [email],
           subject: 'Your Hidden Linux ebook is ready',
           html: '<p>Thank you for your purchase. Your full ebook PDF is attached below.</p>',

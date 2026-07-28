@@ -1,0 +1,13 @@
+# Local Cloudflare / Wrangler state
+.wrangler/
+.dev.vars
+.env
+.env.*
+
+# Dependency / tooling caches
+node_modules/.cache/
+node_modules/.mf/
+
+# OS / editor
+.DS_Store
+*.log
